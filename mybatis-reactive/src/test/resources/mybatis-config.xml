@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+
+    <properties>
+        <property name="metrics.enabled" value="true"/>
+    </properties>
+
+    <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+        <setting name="useGeneratedKeys" value="false"/>
+    </settings>
+
+    <typeAliases>
+    </typeAliases>
+
+    <typeHandlers>
+        <!-- Enum ordinal type handler-->
+        <!--<typeHandler handler="org.apache.ibatis.r2dbc.type.EnumOrdinalTypeHandler"
+                     javaType="java.math.RoundingMode"/>-->
+    </typeHandlers>
+
+    <environments default="default">
+        <environment id="default">
+            <transactionManager type="R2DBC"/>
+            <dataSource type="REACTIVE_POOLED">
+<!--                <property name="driver" value="com.mysql.jdbc.Driver"/>-->
+                <property name="url" value="r2dbc:mysql://127.0.0.1:3306/reactive"/>
+                <property name="user" value="root"/>
+                <property name="password" value="123456"/>
+                <property name="pool.maxIdleTime" value="30"/>
+                <property name="pool.maxSize" value="10"/>
+                <property name="pool.initialSize" value="30"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <!--<reactiveEnvironments default="default">
+        <reactiveEnvironment id="default">
+            <reactiveTransactionManager type="R2DBC"/>
+            <connectionFactory type="REACTIVE_POOLED">
+                <property name="url" value="r2dbc:mysql://127.0.0.1:3306/reactive"/>
+                <property name="username" value="root"/>
+                <property name="password" value="123456"/>
+            </connectionFactory>
+        </reactiveEnvironment>
+    </reactiveEnvironments>-->
+
+    <mappers>
+        <mapper resource="mapper/UserMapper.xml"/>
+    </mappers>
+
+</configuration>
