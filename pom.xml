@@ -20,6 +20,7 @@
     <modules>
         <module>mybatis-reactive</module>
         <module>mybatis-reactive-spring</module>
+        <module>mybatis-reactive-boot-starter</module>
     </modules>
 
     <build>

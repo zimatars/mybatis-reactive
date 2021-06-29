@@ -33,6 +33,8 @@ public class ReactiveConfiguration extends Configuration {
 
     public ReactiveConfiguration() {
         super();
+        //mapUnderscoreToCamelCase default true
+        this.mapUnderscoreToCamelCase = true;
         typeAliasRegistry.registerAlias("R2DBC", R2dbcTransactionFactory.class);
         typeAliasRegistry.registerAlias("R2DBC_POOLED", ConnectionPool.class);
     }
