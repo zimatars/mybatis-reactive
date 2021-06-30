@@ -16,11 +16,11 @@
 /**
  * MyBatis @Configuration style sample
  */
-package com.waterdrop.mybatisreactive.boot;
+package com.waterdrop.mybatisreactive.pageplugin;
 
-import com.waterdrop.mybatisreactive.boot.autoconfigure.sample.config.SampleConfig;
-import com.waterdrop.mybatisreactive.boot.autoconfigure.sample.domain.User;
-import com.waterdrop.mybatisreactive.boot.autoconfigure.sample.service.FooService;
+import com.waterdrop.mybatisreactive.pageplugin.sample.config.SampleConfig;
+import com.waterdrop.mybatisreactive.pageplugin.sample.domain.User;
+import com.waterdrop.mybatisreactive.pageplugin.sample.service.FooService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -47,7 +47,8 @@ class SampleJavaConfigTest {
 
   @Test
   void testListAll() {
-    Flux<User> users = fooService.listAll();
+    Pagination pagination = new Pagination(1, 10);
+    Flux<User> users = fooService.listPage(pagination);
     StepVerifier.create(users)
             .thenConsumeWhile(Objects::nonNull, System.out::println)
             .verifyComplete();

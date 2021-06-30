@@ -15,12 +15,18 @@
         <maven.compiler.target>8</maven.compiler.target>
         <mybatis.version>3.5.7</mybatis.version>
         <r2dbc.version>0.8.5.RELEASE</r2dbc.version>
+        <log4j2.version>2.14.1</log4j2.version>
+        <junit.version>5.7.2</junit.version>
+        <assertj.version>3.20.2</assertj.version>
+        <reactor.version>3.4.7</reactor.version>
+        <mysql.driver.version>0.8.2.RELEASE</mysql.driver.version>
     </properties>
 
     <modules>
         <module>mybatis-reactive</module>
         <module>mybatis-reactive-spring</module>
         <module>mybatis-reactive-boot-starter</module>
+        <module>mybatis-reactive-page-plugin</module>
     </modules>
 
     <build>
