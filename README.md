@@ -12,7 +12,7 @@
 ```
 
 ## mybatis-reactive-spring
-##与spring集成
+## 与spring集成
 ```
         <dependency>
             <groupId>com.waterdrop</groupId>
@@ -22,8 +22,8 @@
 ```
 
 ## mybatis-reactive-boot-starer
-##与spring boot集成
-###1.starter
+## 与spring boot集成
+### 1.starter
 ```
         <dependency>
             <groupId>com.waterdrop</groupId>
@@ -31,7 +31,7 @@
             <version>1.0-SNAPSHOT</version>
         </dependency>
 ```
-###2.mapper声明
+### 2.mapper声明
 ```
 @Mapper
 public interface UserMapper {
@@ -41,7 +41,7 @@ public interface UserMapper {
 }
 ```
 ## mybatis-reactive-page-plugin
-##分页插件
+## 分页插件
 ```
         <dependency>
             <groupId>com.waterdrop</groupId>
@@ -49,7 +49,7 @@ public interface UserMapper {
             <version>1.0-SNAPSHOT</version>
         </dependency>
 ```
-###配置分页插件
+### 配置分页插件
 ```
   @Bean
   public PaginationInterceptor paginationInterceptor(){
