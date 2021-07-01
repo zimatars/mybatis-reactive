@@ -32,11 +32,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 public class SampleConfig {
 
-  @Bean
+  /*@Bean
   public ConnectionFactory connectionFactory(){
     ConnectionFactory factory = ConnectionFactories.get("r2dbc:mysql://root:123456@127.0.0.1:3306/reactive");
     return factory;
-  }
+  }*/
 
   @Bean
   public PaginationInterceptor paginationInterceptor(){
