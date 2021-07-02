@@ -16,13 +16,16 @@
 package com.waterdrop.mybatisreactive.binding;
 
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSession;
+import com.waterdrop.mybatisreactive.toolkit.KotlinDetector;
+import com.waterdrop.mybatisreactive.toolkit.KotlinReflectionUtils;
+import kotlin.coroutines.Continuation;
+import kotlinx.coroutines.reactor.MonoKt;
 import org.apache.ibatis.annotations.Flush;
 import org.apache.ibatis.annotations.MapKey;
 import org.apache.ibatis.binding.BindingException;
 import org.apache.ibatis.cursor.Cursor;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlCommandType;
-import org.apache.ibatis.mapping.StatementType;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.ParamNameResolver;
 import org.apache.ibatis.reflection.TypeParameterResolver;
@@ -59,7 +62,7 @@ public class ReactiveMapperMethod {
     this.method = new MethodSignature(config, mapperInterface, method);
   }
 
-  public Publisher<Object> execute(ReactiveSqlSession sqlSession, Object[] args) {
+  public Object execute(ReactiveSqlSession sqlSession, Object[] args) {
     Publisher<Object> result;
     switch (command.getType()) {
       case INSERT: {
@@ -103,7 +106,7 @@ public class ReactiveMapperMethod {
       throw new BindingException("Mapper method '" + command.getName()
           + " attempted to return null from a method with a primitive return type (" + method.getReturnType() + ").");
     }
-    return result;
+    return awaitWhenSuspend(result, args);
   }
 
   private Mono<Object> rowCountResult(Mono<Integer> rowCount) {
@@ -126,6 +129,21 @@ public class ReactiveMapperMethod {
     return result;
   }
 
+  private Object awaitWhenSuspend(Publisher<?> result, Object[] args){
+    Mono<?> convertMonoResult;
+    if(result instanceof Flux){
+      convertMonoResult = ((Flux<?>)result).collectList();
+    }else {
+      convertMonoResult = (Mono<?>) result;
+    }
+    if(method.isSuspendedDeclaredMethod()){
+      Continuation<Object> continuation = (Continuation) args[args.length - 1];
+      args[args.length - 1] = null;
+      return MonoKt.awaitSingleOrNull(convertMonoResult, continuation);
+    }
+    return result;
+  }
+
   /*private void executeWithResultHandler(SqlSession sqlSession, Object[] args) {
     MappedStatement ms = sqlSession.getConfiguration().getMappedStatement(command.getName());
     if (!StatementType.CALLABLE.equals(ms.getStatementType())
@@ -143,7 +161,7 @@ public class ReactiveMapperMethod {
     }
   }*/
 
-  private <E> Flux<Object> executeForMany(ReactiveSqlSession sqlSession, Object[] args) {
+  private <E> Publisher<Object> executeForMany(ReactiveSqlSession sqlSession, Object[] args) {
     Flux<Object> result;
     Object param = method.convertArgsToSqlCommandParam(args);
     if (method.hasRowBounds()) {
@@ -291,9 +309,19 @@ public class ReactiveMapperMethod {
     private final Integer resultHandlerIndex;
     private final Integer rowBoundsIndex;
     private final ParamNameResolver paramNameResolver;
+    private final Method method;
+    private final boolean suspendedDeclaredMethod;
 
     public MethodSignature(Configuration configuration, Class<?> mapperInterface, Method method) {
-      Type resolvedReturnType = TypeParameterResolver.resolveReturnType(method, mapperInterface);
+      Type resolvedReturnType;
+      if (KotlinDetector.isKotlinReflectPresent()) {
+        this.suspendedDeclaredMethod = KotlinReflectionUtils.isSuspend(method);
+        resolvedReturnType = this.suspendedDeclaredMethod ? KotlinReflectionUtils.getReturnType(method)
+                : TypeParameterResolver.resolveReturnType(method, mapperInterface);
+      } else {
+        this.suspendedDeclaredMethod = false;
+        resolvedReturnType = TypeParameterResolver.resolveReturnType(method, mapperInterface);
+      }
       if (resolvedReturnType instanceof Class<?>) {
         this.returnType = (Class<?>) resolvedReturnType;
       } else if (resolvedReturnType instanceof ParameterizedType) {
@@ -303,7 +331,7 @@ public class ReactiveMapperMethod {
         this.returnType = method.getReturnType();
       }
       this.returnsVoid = void.class.equals(this.returnType);
-      this.returnsMany = Flux.class.equals(this.returnType);
+      this.returnsMany = Flux.class.equals(this.returnType) || (this.suspendedDeclaredMethod && List.class.equals(this.returnType));
       this.returnsCursor = Cursor.class.equals(this.returnType);
       this.returnsOptional = Optional.class.equals(this.returnType);
       this.mapKey = getMapKey(method);
@@ -311,6 +339,7 @@ public class ReactiveMapperMethod {
       this.rowBoundsIndex = getUniqueParamIndex(method, RowBounds.class);
       this.resultHandlerIndex = getUniqueParamIndex(method, ResultHandler.class);
       this.paramNameResolver = new ParamNameResolver(configuration, method);
+      this.method = method;
     }
 
     public Object convertArgsToSqlCommandParam(Object[] args) {
@@ -395,6 +424,14 @@ public class ReactiveMapperMethod {
         }
       }
       return mapKey;
+    }
+
+    public Method getMethod() {
+      return method;
+    }
+
+    public boolean isSuspendedDeclaredMethod() {
+      return suspendedDeclaredMethod;
     }
   }
 

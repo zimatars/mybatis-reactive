@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.waterdrop.mybatisreactive.mapper.UserKtMapper">
+
+    <select id="selectList" resultType="com.waterdrop.mybatisreactive.entity.User">
+        select * from user
+    </select>
+
+    <select id="getById" parameterType="long" resultType="com.waterdrop.mybatisreactive.entity.User">
+        select * from user WHERE id = #{value}
+    </select>
+
+    <insert id="insert" parameterType="com.waterdrop.mybatisreactive.entity.User">
+        insert into user (name,age,created_time) value (#{name}, #{age}, #{createdTime})
+    </insert>
+
+    <insert id="batchInsert">
+        insert into user (nick,created_at)
+        values
+        <foreach collection="userList" item="item" separator=",">
+            (#{item.nick},#{item.createdAt})
+        </foreach>
+    </insert>
+
+    <update id="updateById">
+        update user
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="age != null" >age = #{age},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="deleteById">
+        delete from user where id = #{id}
+    </update>
+
+</mapper>

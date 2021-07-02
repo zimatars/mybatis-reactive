@@ -1,5 +1,5 @@
 # mybatis reactive
-### 响应式、非阻塞 mybatis 实现
+### 响应式、非阻塞 mybatis 实现, kotlin协程支持 
 
 # Getting Started
 ## mybatis-reactive
@@ -29,12 +29,21 @@ spring:
     password: ******
 ```
 ### 3.mapper声明
-```
+```java
 @Mapper
 public interface UserMapper {
     Mono<User> getById(Long id);
 
     Flux<User> selectList();
+}
+```
+kotlin协程支持，mapper支持suspend函数
+```kotlin
+@Mapper
+interface UserKtMapper {
+    suspend fun getById(id: Long?): User?
+
+    suspend fun selectList(): List<User>
 }
 ```
 ## mybatis-reactive-spring
