@@ -2,18 +2,16 @@ package com.waterdrop.mybatisreactive
 
 import com.waterdrop.mybatisreactive.builder.xml.ReactiveXMLConfigBuilder
 import com.waterdrop.mybatisreactive.entity.User
+import com.waterdrop.mybatisreactive.executor.BaseReactiveExecutor
 import com.waterdrop.mybatisreactive.mapper.UserKtMapper
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory
 import com.waterdrop.mybatisreactive.session.defaults.DefaultReactiveSqlSessionFactory
 import kotlinx.coroutines.runBlocking
+import org.apache.ibatis.logging.LogFactory
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
-import reactor.core.publisher.Mono
-import reactor.test.StepVerifier
-import java.time.LocalDateTime
-import java.util.*
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UserKtMapperTest {
@@ -32,9 +30,14 @@ class UserKtMapperTest {
 
 
     @Test
+    fun testGetById() = runBlocking{
+        val user: User? = getUserKtMapper().getById(1)
+        Assertions.assertTrue { user!=null && user.id==1L }
+    }
+
+    @Test
     fun testSelectList() = runBlocking{
         val users: List<User> = getUserKtMapper().selectList()
-        users.forEach { println(it) }
         Assertions.assertTrue { users.isNotEmpty() }
     }
 }

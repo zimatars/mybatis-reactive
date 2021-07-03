@@ -15,6 +15,7 @@
  */
 package com.waterdrop.mybatisreactive.binding;
 
+import com.waterdrop.mybatisreactive.reflection.SuspendParamNameResolver;
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSession;
 import com.waterdrop.mybatisreactive.toolkit.KotlinDetector;
 import com.waterdrop.mybatisreactive.toolkit.KotlinReflectionUtils;
@@ -27,7 +28,6 @@ import org.apache.ibatis.cursor.Cursor;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.reflection.MetaObject;
-import org.apache.ibatis.reflection.ParamNameResolver;
 import org.apache.ibatis.reflection.TypeParameterResolver;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.ResultHandler;
@@ -308,7 +308,7 @@ public class ReactiveMapperMethod {
     private final String mapKey;
     private final Integer resultHandlerIndex;
     private final Integer rowBoundsIndex;
-    private final ParamNameResolver paramNameResolver;
+    private final SuspendParamNameResolver paramNameResolver;
     private final Method method;
     private final boolean suspendedDeclaredMethod;
 
@@ -338,7 +338,7 @@ public class ReactiveMapperMethod {
       this.returnsMap = this.mapKey != null;
       this.rowBoundsIndex = getUniqueParamIndex(method, RowBounds.class);
       this.resultHandlerIndex = getUniqueParamIndex(method, ResultHandler.class);
-      this.paramNameResolver = new ParamNameResolver(configuration, method);
+      this.paramNameResolver = new SuspendParamNameResolver(configuration, method, suspendedDeclaredMethod);
       this.method = method;
     }
 
