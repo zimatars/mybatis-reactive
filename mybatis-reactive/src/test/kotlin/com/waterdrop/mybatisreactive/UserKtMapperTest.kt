@@ -6,12 +6,15 @@ import com.waterdrop.mybatisreactive.executor.BaseReactiveExecutor
 import com.waterdrop.mybatisreactive.mapper.UserKtMapper
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory
 import com.waterdrop.mybatisreactive.session.defaults.DefaultReactiveSqlSessionFactory
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import kotlinx.coroutines.runBlocking
 import org.apache.ibatis.logging.LogFactory
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import reactor.core.publisher.Mono
+import java.time.LocalDateTime
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class UserKtMapperTest {
@@ -39,5 +42,16 @@ class UserKtMapperTest {
     fun testSelectList() = runBlocking{
         val users: List<User> = getUserKtMapper().selectList()
         Assertions.assertTrue { users.isNotEmpty() }
+    }
+
+    @Test
+    fun testInsert() = runBlocking{
+        val user = User().apply {
+            age=30
+            name="aaa"
+            createdTime= LocalDateTime.now()
+        }
+        val insertOk = getUserKtMapper().insert(user)
+        Assertions.assertTrue { insertOk }
     }
 }

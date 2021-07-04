@@ -15,10 +15,12 @@
  */
 package com.waterdrop.mybatisreactive.binding;
 
+import com.waterdrop.mybatisreactive.exception.ReactiveMybatisException;
 import com.waterdrop.mybatisreactive.reflection.SuspendParamNameResolver;
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSession;
 import com.waterdrop.mybatisreactive.toolkit.KotlinDetector;
 import com.waterdrop.mybatisreactive.toolkit.KotlinReflectionUtils;
+import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import kotlinx.coroutines.reactor.MonoKt;
 import org.apache.ibatis.annotations.Flush;
@@ -63,7 +65,7 @@ public class ReactiveMapperMethod {
   }
 
   public Object execute(ReactiveSqlSession sqlSession, Object[] args) {
-    Publisher<Object> result;
+    Publisher<?> result;
     switch (command.getType()) {
       case INSERT: {
         Object param = method.convertArgsToSqlCommandParam(args);
@@ -82,8 +84,10 @@ public class ReactiveMapperMethod {
       }
       case SELECT:
         if (method.returnsVoid() && method.hasResultHandler()) {
+          //todo executeWithResultHandler
 //          executeWithResultHandler(sqlSession, args);
-          result = null;
+//          result = Mono.empty();
+          throw new ReactiveMybatisException("don`t support executeWithResultHandler");
         } else if (method.returnsMany()) {
           result = executeForMany(sqlSession, args);
           //TODO method return other type
@@ -97,7 +101,7 @@ public class ReactiveMapperMethod {
         }
         break;
       case FLUSH:
-        result = null;//sqlSession.flushStatements();
+        result = Mono.empty();//sqlSession.flushStatements();
         break;
       default:
         throw new BindingException("Unknown execution method for: " + command.getName());
@@ -109,22 +113,21 @@ public class ReactiveMapperMethod {
     return awaitWhenSuspend(result, args);
   }
 
-  private Mono<Object> rowCountResult(Mono<Integer> rowCount) {
-    return rowCount.map(this::rowCountResult);
+  private Mono<?> rowCountResult(Mono<Integer> rowCount) {
+    return method.returnsVoid ? rowCount.then() : rowCount.map(this::rowCountResultConvert);
   }
 
-  private Object rowCountResult(Integer rowCount) {
+  private Object rowCountResultConvert(Integer rowCount) {
     final Object result;
-    if (method.returnsVoid()) {
-      result = null;
-    } else if (Integer.class.equals(method.getReturnActualGenericType()) || Integer.TYPE.equals(method.getReturnActualGenericType())) {
+    Class<?> returnConvertType = method.suspendedDeclaredMethod ? method.getReturnType() : method.getReturnActualGenericType();
+    if (Integer.class.equals(returnConvertType) || Integer.TYPE.equals(returnConvertType)) {
       result = rowCount;
-    } else if (Long.class.equals(method.getReturnActualGenericType()) || Long.TYPE.equals(method.getReturnActualGenericType())) {
+    } else if (Long.class.equals(returnConvertType) || Long.TYPE.equals(returnConvertType)) {
       result = (long) rowCount;
-    } else if (Boolean.class.equals(method.getReturnActualGenericType()) || Boolean.TYPE.equals(method.getReturnActualGenericType())) {
+    } else if (Boolean.class.equals(returnConvertType) || Boolean.TYPE.equals(returnConvertType)) {
       result = rowCount > 0;
     } else {
-      throw new BindingException("Mapper method '" + command.getName() + "' has an unsupported return type: " + method.getReturnActualGenericType());
+      throw new BindingException("Mapper method '" + command.getName() + "' has an unsupported return type: " + returnConvertType);
     }
     return result;
   }
@@ -311,6 +314,7 @@ public class ReactiveMapperMethod {
     private final SuspendParamNameResolver paramNameResolver;
     private final Method method;
     private final boolean suspendedDeclaredMethod;
+    private final boolean returnsReactiveType;
 
     public MethodSignature(Configuration configuration, Class<?> mapperInterface, Method method) {
       Type resolvedReturnType;
@@ -326,11 +330,13 @@ public class ReactiveMapperMethod {
         this.returnType = (Class<?>) resolvedReturnType;
       } else if (resolvedReturnType instanceof ParameterizedType) {
         this.returnType = (Class<?>) ((ParameterizedType) resolvedReturnType).getRawType();
-        this.returnActualGenericType = (Class<?>) ((ParameterizedType) resolvedReturnType).getActualTypeArguments()[0];
+        Type actualTypeArgument = ((ParameterizedType) resolvedReturnType).getActualTypeArguments()[0];
+        this.returnActualGenericType = actualTypeArgument instanceof Class<?> ? (Class<?>) actualTypeArgument : (Class<?>) ((ParameterizedType)actualTypeArgument).getRawType();
       } else {
         this.returnType = method.getReturnType();
       }
-      this.returnsVoid = void.class.equals(this.returnType);
+      this.returnsReactiveType = Publisher.class.equals(this.returnType) || Mono.class.equals(this.returnType) || Flux.class.equals(this.returnType);
+      this.returnsVoid = (this.suspendedDeclaredMethod && Unit.class.equals(this.returnType)) || (this.returnsReactiveType && Void.class.equals(this.returnActualGenericType));
       this.returnsMany = Flux.class.equals(this.returnType) || (this.suspendedDeclaredMethod && List.class.equals(this.returnType));
       this.returnsCursor = Cursor.class.equals(this.returnType);
       this.returnsOptional = Optional.class.equals(this.returnType);
@@ -340,6 +346,12 @@ public class ReactiveMapperMethod {
       this.resultHandlerIndex = getUniqueParamIndex(method, ResultHandler.class);
       this.paramNameResolver = new SuspendParamNameResolver(configuration, method, suspendedDeclaredMethod);
       this.method = method;
+      if(this.suspendedDeclaredMethod && this.returnsReactiveType){
+        throw new ReactiveMybatisException(mapperInterface.getName()+"."+method.getName()+": suspend method should not return reactive type");
+      }
+      if(!this.suspendedDeclaredMethod && !this.returnsReactiveType){
+        throw new ReactiveMybatisException(mapperInterface.getName()+"."+method.getName()+": method should return reactive type");
+      }
     }
 
     public Object convertArgsToSqlCommandParam(Object[] args) {
@@ -368,6 +380,10 @@ public class ReactiveMapperMethod {
 
     public Class<?> getReturnActualGenericType() {
       return returnActualGenericType;
+    }
+
+    public boolean isReturnsReactiveType() {
+      return returnsReactiveType;
     }
 
     public boolean returnsMany() {
