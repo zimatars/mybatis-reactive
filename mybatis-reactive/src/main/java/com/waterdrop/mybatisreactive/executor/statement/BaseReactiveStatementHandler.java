@@ -17,6 +17,7 @@ package com.waterdrop.mybatisreactive.executor.statement;
 
 import com.waterdrop.mybatisreactive.exception.ReactiveMybatisException;
 import com.waterdrop.mybatisreactive.executor.ReactiveExecutor;
+import com.waterdrop.mybatisreactive.executor.keygen.ReactiveKeyGenerator;
 import com.waterdrop.mybatisreactive.executor.parameter.ReactiveParameterHandler;
 import com.waterdrop.mybatisreactive.executor.resultset.ReactiveResultSetHandler;
 import com.waterdrop.mybatisreactive.session.ReactiveConfiguration;
@@ -24,6 +25,7 @@ import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.Statement;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.executor.ExecutorException;
+import org.apache.ibatis.executor.keygen.KeyGenerator;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.reflection.factory.ObjectFactory;
@@ -62,7 +64,6 @@ public abstract class BaseReactiveStatementHandler implements ReactiveStatementH
     this.objectFactory = configuration.getObjectFactory();
 
     if (boundSql == null) { // issue #435, get the key before calculating the statement
-      //todo generateKeys
 //      generateKeys(parameterObject);
       boundSql = mappedStatement.getBoundSql(parameterObject);
     }
@@ -129,11 +130,12 @@ public abstract class BaseReactiveStatementHandler implements ReactiveStatementH
     }
   }
 
-  /*protected void generateKeys(Object parameter) {
+  /*protected void generateKeys(Object parameter,Statement stmt) {
     KeyGenerator keyGenerator = mappedStatement.getKeyGenerator();
-    ErrorContext.instance().store();
-    keyGenerator.processBefore(executor, mappedStatement, null, parameter);
-    ErrorContext.instance().recall();
+//    ErrorContext.instance().store();
+    ReactiveKeyGenerator reactiveKeyGenerator = ReactiveKeyGenerator.convertFromKeyGenerator(keyGenerator);
+    reactiveKeyGenerator.processBefore(executor, mappedStatement, stmt, parameter);
+//    ErrorContext.instance().recall();
   }*/
 
 }

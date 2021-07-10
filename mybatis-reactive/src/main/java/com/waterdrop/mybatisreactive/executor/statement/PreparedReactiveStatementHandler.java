@@ -16,14 +16,17 @@
 package com.waterdrop.mybatisreactive.executor.statement;
 
 import com.waterdrop.mybatisreactive.executor.ReactiveExecutor;
+import com.waterdrop.mybatisreactive.executor.keygen.ReactiveKeyGenerator;
 import com.waterdrop.mybatisreactive.executor.resultset.RowWrap;
 import io.r2dbc.spi.Connection;
 import io.r2dbc.spi.Result;
 import io.r2dbc.spi.Statement;
 import org.apache.ibatis.executor.keygen.Jdbc3KeyGenerator;
+import org.apache.ibatis.executor.keygen.KeyGenerator;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.ResultSetType;
+import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import reactor.core.publisher.Flux;
@@ -42,8 +45,12 @@ public class PreparedReactiveStatementHandler extends BaseReactiveStatementHandl
 
   @Override
   public Mono<Integer> update(Statement statement) {
-    //todo keyGenerator
-    return Mono.from(statement.execute()).flatMap(result->Mono.from(result.getRowsUpdated()));
+    ReactiveKeyGenerator keyGenerator = ReactiveKeyGenerator.convertFromKeyGenerator(mappedStatement.getKeyGenerator());
+    Object parameterObject = boundSql.getParameterObject();
+    return Mono.from(statement.execute()).flatMap(result->{
+      return keyGenerator.processAfter(executor, mappedStatement, result, parameterObject)
+              .then(Mono.from(result.getRowsUpdated()));
+    });
   }
 
 
@@ -57,14 +64,10 @@ public class PreparedReactiveStatementHandler extends BaseReactiveStatementHandl
   protected Statement instantiateStatement(Connection connection) {
     String sql = boundSql.getSql();
     if (mappedStatement.getKeyGenerator() instanceof Jdbc3KeyGenerator) {
-      String[] keyColumnNames = mappedStatement.getKeyColumns();
-      /*if (keyColumnNames == null) {
-        return connection.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS);
-      } else {
-        return connection.prepareStatement(sql, keyColumnNames);
-      }*/
-      //todo KeyGenerator
-      throw new RuntimeException("waiting impl");
+      ReactiveKeyGenerator keyGenerator = ReactiveKeyGenerator.convertFromKeyGenerator(mappedStatement.getKeyGenerator());
+      Statement statement = connection.createStatement(sql);
+      keyGenerator.processBefore(executor, mappedStatement, statement, null);
+      return statement;
     } else if (mappedStatement.getResultSetType() == ResultSetType.DEFAULT) {
       return connection.createStatement(sql);
     } else {

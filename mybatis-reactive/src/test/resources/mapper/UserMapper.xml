@@ -10,7 +10,7 @@
         select * from user WHERE id = #{value}
     </select>
 
-    <insert id="insert" parameterType="com.waterdrop.mybatisreactive.entity.User">
+    <insert id="insert" parameterType="com.waterdrop.mybatisreactive.entity.User" useGeneratedKeys="true">
         insert into user (name,age,created_time) value (#{name}, #{age}, #{createdTime})
     </insert>
 
