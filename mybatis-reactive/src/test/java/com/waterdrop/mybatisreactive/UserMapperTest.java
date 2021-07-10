@@ -20,6 +20,7 @@ import java.util.Objects;
 public class UserMapperTest {
     private ReactiveSqlSessionFactory reactiveSqlSessionFactory;
 
+
     @BeforeAll
     public void setUp() {
         ReactiveXMLConfigBuilder xmlConfigBuilder = new ReactiveXMLConfigBuilder(this.getClass().getResourceAsStream("/mybatis-config.xml"));
@@ -40,6 +41,14 @@ public class UserMapperTest {
     }
 
     @Test
+    public void testGetById() {
+        Mono<User> user = getUserMapper().getById(1L);
+        StepVerifier.create(user)
+                .thenConsumeWhile(Objects::nonNull, System.out::println)
+                .verifyComplete();
+    }
+
+    @Test
     public void testInsert() {
         User user = new User();
         user.setName("张三");
@@ -47,7 +56,7 @@ public class UserMapperTest {
         user.setCreatedTime(LocalDateTime.now());
         Mono<Integer> updateRows = getUserMapper().insert(user);
         StepVerifier.create(updateRows)
-                .expectNext(1)
+                .expectNextMatches(it-> it==1 && user.getId()!=null)
                 .verifyComplete();
     }
 
