@@ -25,6 +25,13 @@ public class R2dbcKeyGenerator implements ReactiveKeyGenerator {
 
     @Override
     public void processBefore(ReactiveExecutor executor, MappedStatement ms, Statement stmt, Object parameter) {
+        if(ms.getKeyProperties()==null){
+            return;
+        }
+        if (ms.getKeyColumns() != null && ms.getKeyColumns().length == ms.getKeyProperties().length) {
+            stmt.returnGeneratedValues(ms.getKeyColumns());
+            return;
+        }
         stmt.returnGeneratedValues(ms.getKeyProperties());
     }
 
@@ -40,7 +47,8 @@ public class R2dbcKeyGenerator implements ReactiveKeyGenerator {
                 new Class[]{ResultSet.class}, resultSetProxyHandler);
         return Mono.from(result.map((row, rowMetadata) -> {
             MetaObject metaParam = ms.getConfiguration().newMetaObject(parameter);
-            for (String keyProperty : keyProperties) {
+            for (int i = 0; i < keyProperties.length; i++) {
+                String keyProperty = keyProperties[i];
                 if (!metaParam.hasSetter(keyProperty)) {
                     throw new ExecutorException("No setter found for the keyProperty '" + keyProperty + "' in '"
                             + metaParam.getOriginalObject().getClass().getName() + "'.");
@@ -54,7 +62,9 @@ public class R2dbcKeyGenerator implements ReactiveKeyGenerator {
                     resultSetProxyHandler.initRowInfo(row, rowMetadata);
                     Object value = null;
                     try {
-                        value = typeHandler.getResult(proxyResultSet, keyProperty);
+                        String[] keyColumns = ms.getKeyColumns();
+                        String columnName = keyColumns != null && keyColumns.length == keyProperties.length ? keyColumns[i] : keyProperty;
+                        value = typeHandler.getResult(proxyResultSet, columnName);
                     } catch (SQLException exception) {
                         //shouldn't happen Exception
                         throw new ReactiveMybatisException(exception);
