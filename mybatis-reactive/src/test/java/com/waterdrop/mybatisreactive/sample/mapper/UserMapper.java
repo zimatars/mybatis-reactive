@@ -1,6 +1,6 @@
-package com.waterdrop.mybatisreactive.mapper;
+package com.waterdrop.mybatisreactive.sample.mapper;
 
-import com.waterdrop.mybatisreactive.entity.User;
+import com.waterdrop.mybatisreactive.sample.entity.User;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

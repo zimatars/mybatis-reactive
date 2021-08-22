@@ -174,13 +174,14 @@ public class DefaultReactiveSqlSession implements ReactiveSqlSession {
   @Override
   public Mono<Void> close() {
     try {
-      executor.close(isCommitOrRollbackRequired(false));
-      closeCursors();
-      dirty = false;
+      return executor.close(isCommitOrRollbackRequired(false)).then(Mono.defer(()->{
+        closeCursors();
+        dirty = false;
+        return Mono.empty();
+      }));
     } finally {
       ErrorContext.instance().reset();
     }
-    return Mono.empty();
   }
 
   private void closeCursors() {

@@ -1,9 +1,9 @@
-package com.waterdrop.mybatisreactive
+package com.waterdrop.mybatisreactive.sample
 
 import com.waterdrop.mybatisreactive.builder.xml.ReactiveXMLConfigBuilder
-import com.waterdrop.mybatisreactive.entity.User
+import com.waterdrop.mybatisreactive.sample.entity.User
 import com.waterdrop.mybatisreactive.executor.BaseReactiveExecutor
-import com.waterdrop.mybatisreactive.mapper.UserKtMapper
+import com.waterdrop.mybatisreactive.sample.mapper.UserKtMapper
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory
 import com.waterdrop.mybatisreactive.session.defaults.DefaultReactiveSqlSessionFactory
 import kotlinx.coroutines.reactor.awaitSingleOrNull
@@ -25,6 +25,9 @@ class UserKtMapperTest {
         val xmlConfigBuilder = ReactiveXMLConfigBuilder(this.javaClass.getResourceAsStream("/mybatis-config.xml"))
         val configuration = xmlConfigBuilder.parse()
         reactiveSqlSessionFactory = DefaultReactiveSqlSessionFactory(configuration)
+        reactiveSqlSessionFactory.openSession(true)
+            .update("com.waterdrop.mybatisreactive.sample.mapper.UserMapper.ddl")
+            .block()
     }
 
     private fun getUserKtMapper(): UserKtMapper {

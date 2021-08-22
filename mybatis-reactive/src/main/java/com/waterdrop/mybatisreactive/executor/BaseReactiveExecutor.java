@@ -79,13 +79,14 @@ public abstract class BaseReactiveExecutor implements ReactiveExecutor {
   }
 
   @Override
-  public void close(boolean forceRollback) {
+  public Mono<Void> close(boolean forceRollback) {
+    Mono<Void> rollback=Mono.empty();
     try {
       try {
-//        rollback(forceRollback);
+        rollback = rollback(forceRollback);
       } finally {
         if (transaction != null) {
-          transaction.close();
+          return rollback.then(transaction.close());
         }
       }
     } catch (SQLException e) {
@@ -98,11 +99,37 @@ public abstract class BaseReactiveExecutor implements ReactiveExecutor {
       localOutputParameterCache = null;
       closed = true;
     }
+    return Mono.empty();
   }
 
   @Override
   public boolean isClosed() {
     return closed;
+  }
+
+  public Mono<Void> rollback(boolean required) throws SQLException {
+    if (!closed) {
+      try {
+        clearLocalCache();
+        flushStatements(true);
+      } finally {
+        if (required) {
+          return transaction.rollback();
+        }
+      }
+    }
+    return Mono.empty();
+  }
+
+  public List<BatchResult> flushStatements() throws SQLException {
+    return flushStatements(false);
+  }
+
+  public List<BatchResult> flushStatements(boolean isRollBack) throws SQLException {
+    if (closed) {
+      throw new ExecutorException("Executor was closed.");
+    }
+    return doFlushStatements(isRollBack);
   }
 
   @Override

@@ -24,7 +24,7 @@ public class PreparedStatementProxy implements InvocationHandler {
         String methodName = method.getName();
         if(methodName.equals("setNull")){
             int parameterIndex = (int) args[0];
-            JdbcType jdbcType = JdbcType.forCode(parameterIndex);
+            JdbcType jdbcType = JdbcType.forCode((int) args[1]);
             TypeHandler<?> typeHandler = configuration.getTypeHandlerRegistry().getTypeHandler(jdbcType);
             Class<?> paramClazz = Object.class;
             if(typeHandler!=null){

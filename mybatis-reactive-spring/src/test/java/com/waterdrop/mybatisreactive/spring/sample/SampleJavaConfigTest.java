@@ -18,10 +18,16 @@
  */
 package com.waterdrop.mybatisreactive.spring.sample;
 
+import com.waterdrop.mybatisreactive.builder.xml.ReactiveXMLConfigBuilder;
+import com.waterdrop.mybatisreactive.session.ReactiveConfiguration;
+import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory;
+import com.waterdrop.mybatisreactive.session.defaults.DefaultReactiveSqlSessionFactory;
 import com.waterdrop.mybatisreactive.spring.sample.config.SampleConfig;
 import com.waterdrop.mybatisreactive.spring.sample.domain.User;
 import com.waterdrop.mybatisreactive.spring.sample.service.FooService;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import reactor.core.publisher.Flux;
@@ -30,11 +36,21 @@ import reactor.test.StepVerifier;
 
 import java.util.Objects;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringJUnitConfig(classes = SampleConfig.class)
 class SampleJavaConfigTest {
 
   @Autowired
   private FooService fooService;
+  @Autowired
+  private ReactiveSqlSessionFactory reactiveSqlSessionFactory;
+
+  @BeforeAll
+  public void setUp() {
+    reactiveSqlSessionFactory.openSession(true)
+            .update("com.waterdrop.mybatisreactive.spring.sample.mapper.UserMapper.ddl")
+            .block();
+  }
 
   @Test
   void testFindById() {

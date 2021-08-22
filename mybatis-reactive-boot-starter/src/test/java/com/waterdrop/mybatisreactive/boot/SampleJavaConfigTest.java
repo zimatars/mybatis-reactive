@@ -21,7 +21,10 @@ package com.waterdrop.mybatisreactive.boot;
 import com.waterdrop.mybatisreactive.boot.autoconfigure.sample.config.SampleConfig;
 import com.waterdrop.mybatisreactive.boot.autoconfigure.sample.domain.User;
 import com.waterdrop.mybatisreactive.boot.autoconfigure.sample.service.FooService;
+import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Flux;
@@ -30,12 +33,22 @@ import reactor.test.StepVerifier;
 
 import java.util.Objects;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringBootTest(classes = SampleConfig.class)
 //@SpringJUnitConfig(classes = SampleConfig.class)
 class SampleJavaConfigTest {
 
   @Autowired
   private FooService fooService;
+  @Autowired
+  private ReactiveSqlSessionFactory reactiveSqlSessionFactory;
+
+  @BeforeAll
+  public void setUp() {
+    reactiveSqlSessionFactory.openSession(true)
+            .update("com.waterdrop.mybatisreactive.boot.autoconfigure.sample.mapper.UserMapper.ddl")
+            .block();
+  }
 
   @Test
   void testFindById() {
@@ -57,8 +70,7 @@ class SampleJavaConfigTest {
   void testInsertWithException() {
     Mono<Void> ret = fooService.testInsertWithException();
     StepVerifier.create(ret)
-            .verifyComplete();
-//            .verifyError(ArithmeticException.class);
+            .verifyError(ArithmeticException.class);
   }
 
 }

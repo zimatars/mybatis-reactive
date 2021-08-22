@@ -1,14 +1,13 @@
-package com.waterdrop.mybatisreactive;
+package com.waterdrop.mybatisreactive.sample;
 
 import com.waterdrop.mybatisreactive.builder.xml.ReactiveXMLConfigBuilder;
-import com.waterdrop.mybatisreactive.entity.User;
-import com.waterdrop.mybatisreactive.mapper.UserMapper;
+import com.waterdrop.mybatisreactive.sample.entity.User;
+import com.waterdrop.mybatisreactive.sample.mapper.UserMapper;
 import com.waterdrop.mybatisreactive.session.ReactiveConfiguration;
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory;
 import com.waterdrop.mybatisreactive.session.defaults.DefaultReactiveSqlSessionFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -16,16 +15,18 @@ import reactor.test.StepVerifier;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class UserMapperTest {
-    private ReactiveSqlSessionFactory reactiveSqlSessionFactory;
+    private static ReactiveSqlSessionFactory reactiveSqlSessionFactory;
 
 
     @BeforeAll
-    public void setUp() {
-        ReactiveXMLConfigBuilder xmlConfigBuilder = new ReactiveXMLConfigBuilder(this.getClass().getResourceAsStream("/mybatis-config.xml"));
+    public static void setUp() {
+        ReactiveXMLConfigBuilder xmlConfigBuilder = new ReactiveXMLConfigBuilder(UserMapperTest.class.getResourceAsStream("/mybatis-config.xml"));
         ReactiveConfiguration configuration = xmlConfigBuilder.parse();
         reactiveSqlSessionFactory = new DefaultReactiveSqlSessionFactory(configuration);
+        reactiveSqlSessionFactory.openSession(true)
+                .update("com.waterdrop.mybatisreactive.sample.mapper.UserMapper.ddl")
+                .block();
     }
 
     private UserMapper getUserMapper(){
@@ -66,7 +67,7 @@ public class UserMapperTest {
         user.setName("王五");
 //        user.setAge(20);
         user.setCreatedTime(LocalDateTime.now());
-        user.setId(50L);
+        user.setId(1L);
         Mono<Integer> updateRows = getUserMapper().updateById(user);
         StepVerifier.create(updateRows)
                 .expectNext(1)
@@ -75,9 +76,9 @@ public class UserMapperTest {
 
     @Test
     public void testDeleteById() {
-        Mono<Boolean> updateRows = getUserMapper().deleteById(49L);
+        Mono<Boolean> updateRows = getUserMapper().deleteById(-1L);
         StepVerifier.create(updateRows)
-                .expectNext(Boolean.TRUE)
+                .expectNext(Boolean.FALSE)
                 .verifyComplete();
     }
 

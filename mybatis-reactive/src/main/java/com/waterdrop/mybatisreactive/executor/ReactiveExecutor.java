@@ -17,19 +17,14 @@ package com.waterdrop.mybatisreactive.executor;
 
 import com.waterdrop.mybatisreactive.transaction.ReactiveTransaction;
 import org.apache.ibatis.cache.CacheKey;
-import org.apache.ibatis.cursor.Cursor;
-import org.apache.ibatis.executor.BatchResult;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
-import org.apache.ibatis.transaction.Transaction;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.sql.SQLException;
-import java.util.List;
 
 /**
  *
@@ -48,7 +43,7 @@ public interface ReactiveExecutor {
 
   ReactiveTransaction getTransaction();
 
-  void close(boolean forceRollback);
+  Mono<Void> close(boolean forceRollback);
 
   boolean isClosed();
 

@@ -187,7 +187,10 @@ public final class ReactiveSqlSessionUtils {
         LOGGER.debug(() -> "Closing non transactional SqlSession [" + session + "]");
         return session.close();
       }
-    }).onErrorResume(NoTransactionException.class,e->session.close());
+    }).onErrorResume(NoTransactionException.class,e->{
+      LOGGER.debug(() -> "Closing non transactional SqlSession [" + session + "]");
+      return session.close();
+    });
   }
 
   /**

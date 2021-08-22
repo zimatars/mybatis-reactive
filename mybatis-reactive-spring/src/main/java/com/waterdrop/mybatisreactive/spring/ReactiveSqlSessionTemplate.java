@@ -384,12 +384,16 @@ public class ReactiveSqlSessionTemplate implements ReactiveSqlSession, Disposabl
         if(result instanceof Mono){
 //          Function<Throwable,Mono> caFunc = (Throwable t)-> catchFunc(t, finalSqlSession);
           return isTransactionalMono.flatMap(isTransactional -> {
-            return ((Mono) result).doFinally(it -> commitFunc.apply(finalSqlSession,isTransactional).subscribe()).doFinally(it -> closeMono.subscribe());
+            return ((Mono) result).doFinally(it -> {
+              commitFunc.apply(finalSqlSession,isTransactional).then(closeMono).subscribe();
+            });
           });
         }
         if(result instanceof Flux){
           return isTransactionalMono.flatMapMany(isTransactional -> {
-            return ((Flux) result).doFinally(it -> commitFunc.apply(finalSqlSession,isTransactional).subscribe()).doFinally(it -> closeMono.subscribe());
+            return ((Flux) result).doFinally(it -> {
+              commitFunc.apply(finalSqlSession,isTransactional).then(closeMono).subscribe();
+            });
           });
 
         }

@@ -1,7 +1,6 @@
-package com.waterdrop.mybatisreactive.entity;
+package com.waterdrop.mybatisreactive.sample.entity;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 /**
  * User
