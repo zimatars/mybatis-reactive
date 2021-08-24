@@ -211,7 +211,7 @@ public class DefaultReactiveSqlSession implements ReactiveSqlSession {
   public Mono<Connection> getConnection() {
     try {
       return executor.getTransaction().getConnection();
-    } catch (SQLException e) {
+    } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error getting a new connection.  Cause: " + e, e);
     }
   }

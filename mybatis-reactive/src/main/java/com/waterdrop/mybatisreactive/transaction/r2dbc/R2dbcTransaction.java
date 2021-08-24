@@ -24,9 +24,11 @@ import org.apache.ibatis.logging.Log;
 import org.apache.ibatis.logging.LogFactory;
 import org.apache.ibatis.session.TransactionIsolationLevel;
 import org.apache.ibatis.transaction.Transaction;
+import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 
 import java.sql.SQLException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * {@link Transaction} that makes use of the JDBC commit and rollback facilities directly.
@@ -43,6 +45,7 @@ public class R2dbcTransaction implements ReactiveTransaction {
   private static final Log log = LogFactory.getLog(R2dbcTransaction.class);
 
   protected Mono<Connection> connection;
+  private AtomicReference<Connection> connectionRef = new AtomicReference<>();
   protected ConnectionFactory connectionFactory;
   protected TransactionIsolationLevel level;
   protected boolean autoCommit;
@@ -62,11 +65,17 @@ public class R2dbcTransaction implements ReactiveTransaction {
   }
 
   @Override
-  public Mono<Connection> getConnection() throws SQLException {
+  public Mono<Connection> getConnection() {
     if (connection == null) {
       connection = openConnection();
     }
-    return connection;
+    return connection.doOnNext(c-> connectionRef.updateAndGet(prev->c));
+  }
+
+  private void validConnectionRef(){
+    if(connectionRef.get()==null){
+      throw new ReactiveMybatisException("method getConnection() must be invoked before this operation");
+    }
   }
 
   @Override
@@ -74,76 +83,83 @@ public class R2dbcTransaction implements ReactiveTransaction {
     if(connection == null){
       throw new ReactiveMybatisException("connection is null when committing");
     }
-    return connection.flatMap(c -> {
-      if (!c.isAutoCommit()) {
-        if (log.isDebugEnabled()) {
-          log.debug("Committing JDBC Connection [" + connection + "]");
-        }
-        return Mono.from(c.commitTransaction());
-      } else {
-        return Mono.empty();
+    validConnectionRef();
+    Connection c = connectionRef.get();
+    if (!c.isAutoCommit()) {
+      if (log.isDebugEnabled()) {
+        log.debug("Committing JDBC Connection [" + connection + "]");
       }
-    });
+      return Mono.from(c.commitTransaction());
+    } else {
+      return Mono.empty();
+    }
 
   }
 
   @Override
-  public Mono<Void> rollback() throws SQLException {
+  public Mono<Void> rollback() {
     if (connection != null) {
-      return connection.flatMap(c -> {
-        if (!c.isAutoCommit()) {
-          if (log.isDebugEnabled()) {
-            log.debug("Rolling back JDBC Connection [" + connection + "]");
-          }
-          return Mono.from(c.rollbackTransaction());
-        } else {
-          return Mono.empty();
+      validConnectionRef();
+      Connection c = connectionRef.get();
+      if (!c.isAutoCommit()) {
+        if (log.isDebugEnabled()) {
+          log.debug("Rolling back JDBC Connection [" + connection + "]");
         }
-      });
+        return Mono.from(c.rollbackTransaction());
+      } else {
+        return Mono.empty();
+      }
     }else {
       return Mono.empty();
     }
   }
 
   @Override
-  public Mono<Void> close() throws SQLException {
+  public Mono<Void> close() {
     if (connection != null) {
-      resetAutoCommit();
+      validConnectionRef();
+      Mono<Void> resetMono = resetAutoCommit();
       if (log.isDebugEnabled()) {
         log.debug("Closing JDBC Connection [" + connection + "]");
       }
-      return connection.flatMap(c -> Mono.from(c.close()));
+      return resetMono.then(Mono.from(connectionRef.get().close()));
     }else {
       throw new ReactiveMybatisException("connection is null when closing");
     }
   }
 
-  protected void setDesiredAutoCommit(boolean desiredAutoCommit) {
-    connection = connection.doOnNext(c->{
-      if (c.isAutoCommit() != desiredAutoCommit) {
-        if (log.isDebugEnabled()) {
-          log.debug("Setting autocommit to " + desiredAutoCommit + " on JDBC Connection [" + connection + "]");
-        }
-        c.setAutoCommit(desiredAutoCommit);
-      }
-    });
+  protected Mono<Void> setDesiredAutoCommit(boolean desiredAutoCommit) {
+    return connection.doOnNext(c -> connectionRef.updateAndGet(prev -> c))
+            .then(Mono.defer(() -> {
+              Connection c = connectionRef.get();
+              if (c.isAutoCommit() != desiredAutoCommit) {
+                if (log.isDebugEnabled()) {
+                  log.debug("Setting autocommit to " + desiredAutoCommit + " on JDBC Connection [" + connection + "]");
+                }
+                return Mono.from(c.setAutoCommit(desiredAutoCommit));
+              } else {
+                return Mono.empty();
+              }
+            }));
 
   }
 
-  protected void resetAutoCommit() {
-    connection = connection.doOnNext(c->{
-      if (!c.isAutoCommit()) {
-        // MyBatis does not call commit/rollback on a connection if just selects were performed.
-        // Some databases start transactions with select statements
-        // and they mandate a commit/rollback before closing the connection.
-        // A workaround is setting the autocommit to true before closing the connection.
-        // Sybase throws an exception here.
-        if (log.isDebugEnabled()) {
-          log.debug("Resetting autocommit to true on JDBC Connection [" + connection + "]");
-        }
-        c.setAutoCommit(true);
+  protected Mono<Void> resetAutoCommit() {
+    Connection c = connectionRef.get();
+    if (!c.isAutoCommit()) {
+      // MyBatis does not call commit/rollback on a connection if just selects were performed.
+      // Some databases start transactions with select statements
+      // and they mandate a commit/rollback before closing the connection.
+      // A workaround is setting the autocommit to true before closing the connection.
+      // Sybase throws an exception here.
+      if (log.isDebugEnabled()) {
+        log.debug("Resetting autocommit to true on JDBC Connection [" + this.connection + "]");
       }
-    });
+      return Mono.from(c.setAutoCommit(true));
+    }else {
+      return Mono.empty();
+    }
+
   }
 
   protected Mono<Connection> openConnection() {
@@ -152,10 +168,14 @@ public class R2dbcTransaction implements ReactiveTransaction {
     }
     connection = Mono.from(connectionFactory.create());
     if (level != null) {
-      connection = connection.doOnNext(c->c.setTransactionIsolationLevel(TransactionConvert.TransactionIsolationLevelConvertIsolationLevel(level)));
+      connection = connection.doOnNext(c -> connectionRef.updateAndGet(prev -> c))
+              .then(Mono.defer(() -> {
+                Publisher<Void> transactionLevelPublisher = connectionRef.get().setTransactionIsolationLevel(TransactionConvert.TransactionIsolationLevelConvertIsolationLevel(level));
+                return Mono.from(transactionLevelPublisher).then(Mono.just(connectionRef.get()));
+              }));
     }
-    setDesiredAutoCommit(autoCommit);
-    return connection;
+    Mono<Void> desiredAutoCommitMono = setDesiredAutoCommit(autoCommit);
+    return connection.then(desiredAutoCommitMono).then(Mono.defer(()->Mono.just(connectionRef.get())));
   }
 
   @Override

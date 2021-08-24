@@ -4,6 +4,7 @@ import com.waterdrop.mybatisreactive.builder.xml.ReactiveXMLConfigBuilder;
 import com.waterdrop.mybatisreactive.sample.entity.User;
 import com.waterdrop.mybatisreactive.sample.mapper.UserMapper;
 import com.waterdrop.mybatisreactive.session.ReactiveConfiguration;
+import com.waterdrop.mybatisreactive.session.ReactiveSqlSession;
 import com.waterdrop.mybatisreactive.session.ReactiveSqlSessionFactory;
 import com.waterdrop.mybatisreactive.session.defaults.DefaultReactiveSqlSessionFactory;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,13 +25,14 @@ public class UserMapperTest {
         ReactiveXMLConfigBuilder xmlConfigBuilder = new ReactiveXMLConfigBuilder(UserMapperTest.class.getResourceAsStream("/mybatis-config.xml"));
         ReactiveConfiguration configuration = xmlConfigBuilder.parse();
         reactiveSqlSessionFactory = new DefaultReactiveSqlSessionFactory(configuration);
-        reactiveSqlSessionFactory.openSession(true)
+        ReactiveSqlSession reactiveSqlSession = reactiveSqlSessionFactory.openSession(true);
+        reactiveSqlSession
                 .update("com.waterdrop.mybatisreactive.sample.mapper.UserMapper.ddl")
-                .block();
+                .then(Mono.defer(()->reactiveSqlSession.close())).block();
     }
 
     private UserMapper getUserMapper(){
-        return reactiveSqlSessionFactory.openSession().getMapper(UserMapper.class);
+        return reactiveSqlSessionFactory.openSession(true).getMapper(UserMapper.class);
     }
 
     @Test

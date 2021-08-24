@@ -29,6 +29,7 @@ import org.springframework.transaction.support.ResourceHolderSupport;
 import reactor.core.publisher.Mono;
 
 import java.sql.SQLException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.springframework.util.Assert.notNull;
 
@@ -52,6 +53,8 @@ public class SpringManagedReactiveTransaction implements ReactiveTransaction {
 
   private Mono<Connection> connection;
 
+  private AtomicReference<Connection> connectionRef = new AtomicReference<>();
+
   private Mono<Boolean> isConnectionTransactional;
 
   private Mono<Boolean> autoCommit;
@@ -65,11 +68,11 @@ public class SpringManagedReactiveTransaction implements ReactiveTransaction {
    * {@inheritDoc}
    */
   @Override
-  public Mono<Connection> getConnection() throws SQLException {
+  public Mono<Connection> getConnection() {
     if (this.connection == null) {
      connection = openConnection();
     }
-    return this.connection;
+    return this.connection.doOnNext(c-> connectionRef.updateAndGet(prev->c));
   }
 
   /**
@@ -89,6 +92,12 @@ public class SpringManagedReactiveTransaction implements ReactiveTransaction {
     return this.connection;
   }
 
+  private void validConnectionRef(){
+    if(connectionRef.get()==null){
+      throw new ReactiveMybatisException("method getConnection() must be invoked before this operation");
+    }
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -97,14 +106,14 @@ public class SpringManagedReactiveTransaction implements ReactiveTransaction {
     if(connection == null){
       throw new ReactiveMybatisException("connection is null when committing");
     }
-    return connection.flatMap(c -> {
-      if (!c.isAutoCommit()) {
-        LOGGER.debug(() -> "Committing JDBC Connection [" + this.connection + "]");
-        return Mono.from(c.commitTransaction());
-      } else {
-        return Mono.empty();
-      }
-    });
+    validConnectionRef();
+    Connection c = connectionRef.get();
+    if (!c.isAutoCommit()) {
+      LOGGER.debug(() -> "Committing JDBC Connection [" + this.connection + "]");
+      return Mono.from(c.commitTransaction());
+    } else {
+      return Mono.empty();
+    }
   }
 
   /**
@@ -113,14 +122,14 @@ public class SpringManagedReactiveTransaction implements ReactiveTransaction {
   @Override
   public Mono<Void> rollback() {
     if (connection != null) {
-      return connection.flatMap(c -> {
-        if (!c.isAutoCommit()) {
-          LOGGER.debug(()->"Rolling back R2DBC Connection [" + connection + "]");
-          return Mono.from(c.rollbackTransaction());
-        } else {
-          return Mono.empty();
-        }
-      });
+      validConnectionRef();
+      Connection c = connectionRef.get();
+      if (!c.isAutoCommit()) {
+        LOGGER.debug(()->"Rolling back R2DBC Connection [" + connection + "]");
+        return Mono.from(c.rollbackTransaction());
+      } else {
+        return Mono.empty();
+      }
     }else {
       return Mono.empty();
     }
@@ -131,7 +140,8 @@ public class SpringManagedReactiveTransaction implements ReactiveTransaction {
    */
   @Override
   public Mono<Void> close() {
-    return this.connection.flatMap(con -> ConnectionFactoryUtils.releaseConnection(con, this.connectionFactory));
+    validConnectionRef();
+    return ConnectionFactoryUtils.releaseConnection(connectionRef.get(), this.connectionFactory);
   }
 
   /**

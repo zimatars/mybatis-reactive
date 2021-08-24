@@ -34,7 +34,7 @@ public interface ReactiveTransaction {
    * @throws SQLException
    *           the SQL exception
    */
-  Mono<Connection> getConnection() throws SQLException;
+  Mono<Connection> getConnection();
 
   /**
    * Commit inner database connection.
@@ -49,14 +49,14 @@ public interface ReactiveTransaction {
    * @throws SQLException
    *           the SQL exception
    */
-  Mono<Void> rollback() throws SQLException;
+  Mono<Void> rollback();
 
   /**
    * Close inner database connection.
    * @throws SQLException
    *           the SQL exception
    */
-  Mono<Void> close() throws SQLException;
+  Mono<Void> close();
 
   /**
    * Get transaction timeout if set.
